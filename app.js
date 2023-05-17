@@ -3,7 +3,7 @@ const serverUrl = 'http://localhost:3000';
 
 // Get the current date
 const currentDate = new Date();
-let currentMonth = currentDate.getMonth();
+let currentMonth = currentDate.getMonth(); // 0-indexed
 let currentYear = currentDate.getFullYear();
 
 // Generate the initial calendar for the current month and year
@@ -36,7 +36,7 @@ function generateCalendar(month, year) {
   // Calculate the number of days in the month
   const daysInMonth = new Date(year, month + 1, 0).getDate(); // Next month's previous month's last day... 0 = last day of previous month
 
-  // Calculate the index of the first day in the calendar grid
+  // Index representing the day of the week for the first day of the month (as in... 0 = Sunday, 1 = Monday, etc)
   const firstDayIndex = firstDay.getDay();
 
   // Generate the calendar structure based on the given month and year
@@ -44,7 +44,7 @@ function generateCalendar(month, year) {
 
   // Add empty squares before the first day of the month
   for (let i = 0; i < firstDayIndex; i++) {
-    calendarHTML += `<div style="width: 14.28%; height: 100px;"></div>`;
+    calendarHTML += `<div style="width: 14.28%; height: 120px;"></div>`;
   }
 
   // Add a numbered square for each day of the month
@@ -64,7 +64,7 @@ function generateCalendar(month, year) {
   document.getElementById('currentMonth').innerText = `${getMonthName(month)} ${year}`;
 
   // Attach click event listeners to the days and load stored colors
-  attachDayEventListeners();
+  setupDays();
 } // End of generateCalendar function
 
 
@@ -80,17 +80,22 @@ function getMonthName(month) {
 
 const colorPicker = document.getElementById('colorPicker');
 const closeIcon = colorPicker.querySelector('.close-icon');
-const colors = ['#2ecc71', '#58d68d', '#7dcea0', '#a3e4d7', '#d6eaf8', '#f5f5f5'];
+const colors = ['#46DA86', '#E3E978', '#FDAC60', '#FF6464', '#f5f5f5'];
 
-
+// Create a color circle for each color
 const colorCircles = colors.map(color => {
+
+  // Circle element
   const circle = document.createElement('div');
   circle.classList.add('color-circle');
   circle.style.backgroundColor = color;
+  
+  // Click event listener
   circle.addEventListener('click', () => {
-    colorPicker.classList.add('d-none');
-    currentDay.style.backgroundColor = color;
+    colorPicker.classList.add('d-none'); // Hide the color picker on circle click
+    currentDay.style.backgroundColor = color; // Change the day's color
 
+    // Send the color to the server
     fetch(`${serverUrl}/mood/${currentDay.dataset.date}`, {
       method: 'PUT',
       headers: {
@@ -110,79 +115,76 @@ const colorCircles = colors.map(color => {
   return circle;
 });
 
+// Put the colors in the picker element
 colorPicker.querySelector('.colors').append(...colorCircles);
 
-let currentDay;
-
+let currentDay; // The day element that was clicked
 function showColorPicker(event, dayElement) {
 
-  event.stopPropagation();
+  event.stopPropagation(); // Prevent the document event defined below from firing
   currentDay = dayElement;
-  colorPicker.style.left = `${event.pageX}px`;
+
+  // Show the color picker at the click event's position
+  colorPicker.style.left = `${event.pageX}px`; // Position of the click event in document
   colorPicker.style.top = `${event.pageY}px`;
   colorPicker.classList.remove('d-none');
 
-  // If the color picker is already visible, hide it first.
-  if (colorPicker.style.display === 'block') {
-    colorPicker.style.display = 'none';
-
-    // Small 100ms delay before showing the color picker again
+  // If the color picker is already visible, hide it and show again
+  if ( !colorPicker.classList.contains('d-none') ) {
+    colorPicker.classList.add('d-none');
+    // Small delay
     setTimeout(() => {
-      colorPicker.style.display = 'block';
+      colorPicker.classList.remove('d-none');
     }, 100);
-  } else {
-    colorPicker.style.display = 'block';
   }
-}
+
+  
+} // end showColorPicker function
 
 closeIcon.addEventListener('click', () => colorPicker.classList.add('d-none'));
 
 //  close the color picker when clicking outside of it
 document.addEventListener('click', (event) => {
-  if (!colorPicker.contains(event.target)) {
+  if ( !colorPicker.contains(event.target) ) { // click event not within / below color picker
     colorPicker.classList.add('d-none');
   }
 });
 
-// Attach event listeners to each day
-// This function is called once at startup
-// and after changing the month
 
-// This function also loads the stored colors for each day
-// This function does a lot of things
-// Too many things
+// Setup the days of the calendar
+// Retrieves the color data for the entire month and sets the colors of the days
+// Also adds a click event listener to each day
 
-function attachDayEventListeners() {
-  document.querySelectorAll('.day').forEach(day => {
-    day.addEventListener('click', (event) => showColorPicker(event, day));
-
-    fetch(`${serverUrl}/mood/${day.dataset.date}`)
-      .then(response => {
-        if (!response.ok) {
-          if (response.status === 404) {
-            // If the mood for this date is not found, set the color to the default
-            throw new Error('404');
-          } else {
-            throw new Error('Network response was not ok');
-          }
-        }
-        return response.json();
-      })
-      .then(mood => {
-        day.style.backgroundColor = mood.color;
-      })
-      .catch(error => {
-        if (error.message === '404') {
-          // Default color for dates with no mood set
-          day.style.backgroundColor = '#f5f5f5';
-        } else {
-          console.error('Error:', error);
-        }
+function setupDays() {
+  // Fetch mood data for the current month
+  fetch(`${serverUrl}/mood/${currentYear}/${currentMonth + 1}`) // 1-indexed month
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response not a-ok');
+      }
+      return response.json();
+    })
+    .then(moods => {
+      // Create a map of date => color 
+      const moodMap = {};
+      moods.forEach(mood => {
+        // Get rid of padding zeros in the date...
+        // Could do this server-side but I think it makes more sense to do it here
+        const [year, month, day] = mood.date.split('-'); 
+        const formattedDate = `${year}-${parseInt(month)}-${parseInt(day)}`;
+        moodMap[formattedDate] = mood.color;
       });
 
-  });
+      // Add click event to each day square and set the color
+      document.querySelectorAll('.day').forEach(day => {
+        day.addEventListener('click', (event) => showColorPicker(event, day));
+
+        // Set the color based on the fetched data or use the default color
+        const colorData = moodMap[day.dataset.date];
+        day.style.backgroundColor = colorData || '#f5f5f5';
+      });
+    })
+    .catch(error => {
+      console.error('Error:', error);
+    });
 }
-
-
-// Call the attachDayEventListeners function after generating the initial calendar
-attachDayEventListeners();

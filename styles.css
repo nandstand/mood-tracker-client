@@ -26,7 +26,7 @@ body {
 
 .top-banner {
     height: calc(100vh / 8);
-    background-color: #367b3f;
+    background-color: #54a577;
     color: white;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
 }
@@ -43,12 +43,12 @@ body {
 }
 
 .btn-banner-color {
-    background-color: #367b3f;
+    background-color: #54a577;
     color: white;
 }
 
 .btn-banner-color:hover {
-    background-color: #2b5f32;
+    background-color: #54a577;
 }
 
 #colorPicker {
